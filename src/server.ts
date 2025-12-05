@@ -1,56 +1,41 @@
 import express, { Request, Response } from "express";
-import { Pool } from "pg";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.join(process.cwd(), ".env") });
+import config from "./config";
+import { initDb } from "./config/db";
+import { logger } from "./middleware/logger";
+import { userRoutes } from "./modules/user/user.routes";
+import { todosRoutes } from "./modules/ todos/todos.routes";
 
 const app = express();
-const port = 5500;
+const port = config.port;
 // middleware
 app.use(express.json());
-
-// DB
-const pool = new Pool({
-  connectionString: `${process.env.CONNECTION_STR}`,
-});
-
-const initDb = async () => {
-  await pool.query(`
-        CREATE TABLE IF NOT EXISTS users(
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(150) UNIQUE NOT NULL, 
-        age INT, 
-        phone VARCHAR(15), 
-        address TEXT,
-        created_at TIMESTAMP DEFAULT NOW(), 
-        updated_at TIMESTAMP DEFAULT NOW()
-        )`);
-
-  await pool.query(`
-           CREATE TABLE IF NOT EXISTS todos(
-           id SERIAL PRIMARY KEY,
-           user_id INT REFERENCES users(id) ON DELETE CASCADE,
-           title VARCHAR(200) NOT NULL,
-           description TEXT,
-           completed BOOLEAN DEFAULT false,
-           due_date DATE,
-           created_at TIMESTAMP DEFAULT NOW(),
-           updated_at TIMESTAMP DEFAULT NOW()
-           )`);
-};
-
+// db initialization
 initDb();
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello next level world");
+
+app.get("/", logger, (req: Request, res: Response) => {
+  res.send(`
+    endpoints are: </br>
+   <a href="/users"> /users</a> </br>
+   <a href="/users/1"> /users/1</a> </br>
+ ----------------------------------------------</br>
+  <a href="/todos"> /todos</a></br>
+
+    `);
 });
 
-app.post("/", (req: Request, res: Response) => {
-  console.log(req.body);
-  res.send("hello this is new post route");
-});
+// user relaetd paths
+app.use("/users", userRoutes);
+// todos related paths
+app.use("/todos", todosRoutes);
 
+// not found route
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: "route not found",
+    path: req.path,
+  });
+});
 app.listen(port, () => {
   console.log(`${"http://localhost:5500"} app listening on port ${port}`);
 });
